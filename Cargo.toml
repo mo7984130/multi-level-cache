@@ -1,0 +1,49 @@
+[package]
+name = "multi-level-cache"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "Multi-level async cache: in-process L1 (Moka) + distributed L2 backend with batch pipeline and DB loader fallback"
+keywords = ["cache", "multi-level", "moka", "redis", "caching"]
+categories = ["asynchronous", "caching", "database"]
+readme = "README.md"
+repository = "https://github.com/mo7984130/multi-level-cache"
+
+[features]
+default = []
+redis-deadpool = ["dep:deadpool-redis", "dep:redis"]
+redis-connection = ["dep:redis", "redis/connection-manager"]
+metrics = ["dep:metrics"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+indexmap = { workspace = true }
+moka = { workspace = true }
+thiserror = { workspace = true }
+
+deadpool-redis = { workspace = true, optional = true }
+redis = { workspace = true, optional = true }
+metrics = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "get_or_load_batch"
+harness = false
+
+# basic / batch depend on no features (including metrics); they build and run with the default configuration
+[[example]]
+name = "basic"
+
+[[example]]
+name = "batch"
+
+[[example]]
+name = "database_caching"
+required-features = ["redis-connection"]
