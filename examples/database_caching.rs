@@ -77,7 +77,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Normal path.
     let product = cache
         .get_or_load("product:42", Duration::from_secs(3600), || async {
-            query_db(42).await?.ok_or_else(|| AppError::NotFound("product 42".into()))
+            query_db(42)
+                .await?
+                .ok_or_else(|| AppError::NotFound("product 42".into()))
         })
         .await?;
     println!("read: {product:?}");
@@ -85,7 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Cache hit (the loader is not called again).
     let product2 = cache
         .get_or_load("product:42", Duration::from_secs(3600), || async {
-            query_db(42).await?.ok_or_else(|| AppError::NotFound("product 42".into()))
+            query_db(42)
+                .await?
+                .ok_or_else(|| AppError::NotFound("product 42".into()))
         })
         .await?;
     assert_eq!(product, product2);

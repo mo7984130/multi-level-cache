@@ -1,7 +1,7 @@
 //! Integration tests for `MultiLevelCache` (backed by the built-in `InMemoryBackend`).
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use multi_level_cache::{Backend, CacheConfig, CacheError, InMemoryBackend, MultiLevelCache};
@@ -41,7 +41,10 @@ async fn loader_of(ids: Vec<u64>, counter: &AtomicUsize) -> Result<Vec<Item>, Ca
 #[tokio::test]
 async fn get_or_load_l1_hit_skips_loader() {
     let cache = make_cache(1024, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let value = cache
@@ -63,7 +66,10 @@ async fn get_or_load_l1_hit_skips_loader() {
 async fn get_or_load_l2_hit_backfills_l1() {
     // Capacity 0 forces L1 to never hit; only L2 is used.
     let cache = make_cache(0, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let value = cache
@@ -86,7 +92,9 @@ async fn get_or_load_full_miss_backfills_all_levels() {
     let cache = make_cache(1024, true);
 
     let value = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(1)) })
+        .get_or_load("item:1", Duration::from_secs(3600), || async {
+            Ok(Item::new(1))
+        })
         .await
         .unwrap();
     assert_eq!(value, Item::new(1));
@@ -115,34 +123,45 @@ async fn get_or_load_corrupted_l2_entry_is_reloaded() {
         .set_ex("item:1", "not-json".to_string(), Duration::from_secs(3600))
         .await
         .unwrap();
-    let cache = MultiLevelCache::<Item>::new(
-        backend,
-        CacheConfig::new(true, 0, Duration::from_secs(60)),
-    );
+    let cache =
+        MultiLevelCache::<Item>::new(backend, CacheConfig::new(true, 0, Duration::from_secs(60)));
 
     let value = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(42)) })
+        .get_or_load("item:1", Duration::from_secs(3600), || async {
+            Ok(Item::new(42))
+        })
         .await
         .unwrap();
     assert_eq!(value, Item::new(42));
 }
 
 #[tokio::test]
-async fn get_or_load_backend_error_propagates() {
+async fn get_or_load_backend_failure_degrades_to_loader() {
     let cache = MultiLevelCache::<Item>::new(
         FailingBackend,
         CacheConfig::new(true, 0, Duration::from_secs(60)),
     );
-    let result = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(1)) })
+    let calls = AtomicUsize::new(0);
+    let value = cache
+        .get_or_load("item:1", Duration::from_secs(3600), || {
+            let calls = &calls;
+            async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Item::new(1))
+            }
+        })
         .await;
-    assert!(matches!(result, Err(CacheError::Backend(_))));
+    assert_eq!(value.unwrap(), Item::new(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
 async fn disabled_cache_passes_through_to_loader() {
     let cache = make_cache(1024, false);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let value = cache
@@ -188,8 +207,14 @@ async fn batch_deduplicates_and_aligns_results() {
 #[tokio::test]
 async fn batch_all_l1_hits_skips_loader() {
     let cache = make_cache(1024, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
-    cache.put("item:2", Item::new(2), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
+    cache
+        .put("item:2", Item::new(2), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let result = cache
@@ -210,7 +235,10 @@ async fn batch_all_l1_hits_skips_loader() {
 #[tokio::test]
 async fn batch_partial_hit_merges_l1_l2_loader() {
     let cache = make_cache(1024, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let result = cache
@@ -277,7 +305,10 @@ async fn batch_backend_failure_degrades_to_full_load() {
 #[tokio::test]
 async fn batch_disabled_passes_through_to_loader() {
     let cache = make_cache(0, false);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     let calls = AtomicUsize::new(0);
     let result = cache
@@ -298,12 +329,20 @@ async fn batch_disabled_passes_through_to_loader() {
 #[tokio::test]
 async fn put_overwrites_then_invalidate_removes() {
     let cache = make_cache(1024, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     // Overwrite
-    cache.put("item:1", Item::new(2), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(2), Duration::from_secs(3600))
+        .await
+        .unwrap();
     let value = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(0)) })
+        .get_or_load("item:1", Duration::from_secs(3600), || async {
+            Ok(Item::new(0))
+        })
         .await
         .unwrap();
     assert_eq!(value, Item::new(2));
@@ -311,7 +350,9 @@ async fn put_overwrites_then_invalidate_removes() {
     // After deletion, fall back to the loader
     cache.invalidate("item:1").await.unwrap();
     let value = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(3)) })
+        .get_or_load("item:1", Duration::from_secs(3600), || async {
+            Ok(Item::new(3))
+        })
         .await
         .unwrap();
     assert_eq!(value, Item::new(3));
@@ -320,8 +361,14 @@ async fn put_overwrites_then_invalidate_removes() {
 #[tokio::test]
 async fn invalidate_batch_removes_all() {
     let cache = make_cache(1024, true);
-    cache.put("item:1", Item::new(1), Duration::from_secs(3600)).await.unwrap();
-    cache.put("item:2", Item::new(2), Duration::from_secs(3600)).await.unwrap();
+    cache
+        .put("item:1", Item::new(1), Duration::from_secs(3600))
+        .await
+        .unwrap();
+    cache
+        .put("item:2", Item::new(2), Duration::from_secs(3600))
+        .await
+        .unwrap();
 
     cache
         .invalidate_batch(&["item:1".to_string(), "item:2".to_string()])
@@ -397,16 +444,31 @@ async fn in_memory_backend_batch_operations() {
     ];
     backend.set_ex_many(&items).await.unwrap();
 
-    let values = backend.get_many(&["a".to_string(), "b".to_string(), "c".to_string()]).await.unwrap();
+    let values = backend
+        .get_many(&["a".to_string(), "b".to_string(), "c".to_string()])
+        .await
+        .unwrap();
     assert_eq!(values, vec![Some("1".into()), Some("2".into()), None]);
 
-    backend.del_many(&["a".to_string(), "b".to_string()]).await.unwrap();
-    assert_eq!(backend.get_many(&["a".to_string(), "b".to_string()]).await.unwrap(), vec![None, None]);
+    backend
+        .del_many(&["a".to_string(), "b".to_string()])
+        .await
+        .unwrap();
+    assert_eq!(
+        backend
+            .get_many(&["a".to_string(), "b".to_string()])
+            .await
+            .unwrap(),
+        vec![None, None]
+    );
 }
 
 #[tokio::test]
 async fn cache_loader_error_propagates() {
-    let cache = make_cache(1024, true);
+    let cache = MultiLevelCache::<Item>::new(
+        FailingBackend,
+        CacheConfig::new(true, 1024, Duration::from_secs(60)),
+    );
     let result: Result<Item, CacheError> = cache
         .get_or_load("item:1", Duration::from_secs(3600), || async {
             Err(CacheError::loader(std::io::Error::other("db down")))
@@ -430,7 +492,10 @@ enum AppErrorKind {
 
 impl AppError {
     fn bad_request(msg: &str) -> Self {
-        Self { msg: msg.into(), kind: AppErrorKind::BadRequest }
+        Self {
+            msg: msg.into(),
+            kind: AppErrorKind::BadRequest,
+        }
     }
 }
 
@@ -447,7 +512,10 @@ impl From<CacheError> for AppError {
     fn from(e: CacheError) -> Self {
         match e {
             CacheError::Custom(_) => Self::bad_request("custom"),
-            _ => AppError { msg: e.to_string(), kind: AppErrorKind::Internal },
+            _ => AppError {
+                msg: e.to_string(),
+                kind: AppErrorKind::Internal,
+            },
         }
     }
 }
@@ -468,16 +536,18 @@ async fn custom_error_type_passthrough_loader_error() {
 }
 
 #[tokio::test]
-async fn custom_error_type_converts_internal_backend_error() {
-    // Backend failure → CacheError → AppError (Internal).
+async fn custom_error_type_backend_failure_degrades_to_loader() {
+    // Backend failure is logged and L3 provides the result.
     let cache = MultiLevelCache::<Item, AppError>::new(
         FailingBackend,
         CacheConfig::new(true, 1024, Duration::from_secs(60)),
     );
     let result: Result<Item, AppError> = cache
-        .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(1)) })
+        .get_or_load("item:1", Duration::from_secs(3600), || async {
+            Ok(Item::new(1))
+        })
         .await;
-    assert!(matches!(&result, Err(e) if e.kind == AppErrorKind::Internal));
+    assert_eq!(result.unwrap(), Item::new(1));
 }
 
 #[tokio::test]
@@ -499,7 +569,9 @@ async fn concurrent_loads_do_not_corrupt_state() {
         let cache = cache.clone();
         handles.push(tokio::spawn(async move {
             let v = cache
-                .get_or_load("item:1", Duration::from_secs(3600), || async { Ok(Item::new(7)) })
+                .get_or_load("item:1", Duration::from_secs(3600), || async {
+                    Ok(Item::new(7))
+                })
                 .await
                 .unwrap();
             assert_eq!(v, Item::new(7));

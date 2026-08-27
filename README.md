@@ -132,6 +132,10 @@ cache.invalidate("user:1").await?;
 Cache operations return the caller's error type `E` (default
 [`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)):
 
+L1/L2 read and backfill failures are logged and degrade to the L3 loader; only a loader failure
+is returned from `get_or_load` / `get_or_load_batch`. Cache write and invalidation operations
+still return their backend errors so callers can handle failed mutations.
+
 - `Backend` — L2 backend error (Redis connection/command failure)
 - `Serialization` — value serialization/deserialization failure
 - `Loader` — data-source loading failure (upstream/infrastructure)

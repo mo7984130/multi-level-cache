@@ -131,6 +131,10 @@ cache.invalidate("user:1").await?;
 缓存操作返回调用方指定的错误类型 `E`(默认为
 [`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)):
 
+L1/L2 读取和回填写失败会记录日志并降级到 L3 loader；`get_or_load` /
+`get_or_load_batch` 仅在 loader 失败时返回错误。缓存写入和失效操作仍会返回后端错误，
+以便调用方处理写入失败。
+
 - `Backend` — L2 后端错误(Redis 连接/命令失败)
 - `Serialization` — 值序列化/反序列化失败
 - `Loader` — 数据源加载失败(上游/基础设施故障)

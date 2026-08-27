@@ -29,18 +29,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // On miss: call the loader and backfill.
     let u = cache
-        .get_or_load("user:1", Duration::from_secs(3600), || async { Ok(user(1)) })
+        .get_or_load("user:1", Duration::from_secs(3600), || async {
+            Ok(user(1))
+        })
         .await?;
     println!("first read (through the loader): {u:?}");
 
     // On hit: the loader is not called again.
     let u = cache
-        .get_or_load("user:1", Duration::from_secs(3600), || async { Ok(user(999)) })
+        .get_or_load("user:1", Duration::from_secs(3600), || async {
+            Ok(user(999))
+        })
         .await?;
     println!("second read (cache hit): {u:?}");
 
     // Overwrite via put.
-    cache.put("user:1", User { id: 1, name: "renamed".into() }, Duration::from_secs(3600)).await?;
+    cache
+        .put(
+            "user:1",
+            User {
+                id: 1,
+                name: "renamed".into(),
+            },
+            Duration::from_secs(3600),
+        )
+        .await?;
 
     // Delete via invalidate.
     cache.invalidate("user:1").await?;

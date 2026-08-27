@@ -125,15 +125,15 @@ where
     }
 
     /// Gets a value from the cache, falling back to L2 and then the loader, backfilling each
-    /// level on miss.
+    /// level on miss or cache-read failure.
     ///
-    /// The loader returns the caller's error type `E`; internal cache failures ([`CacheError`])
-    /// are converted into `E` via `E: From<CacheError>`.
+    /// The loader returns the caller's error type `E`. Cache read failures are logged and fall
+    /// through to the loader; a loader failure is returned to the caller.
     ///
     /// # Arguments
     /// - `key`: the cache key
     /// - `ttl`: the L2 (distributed backend) expiration time
-    /// - `loader`: the L3 data-source loader closure, called only when both L1 and L2 miss
+    /// - `loader`: the L3 data-source loader closure, called when L1/L2 miss or L2 is unavailable
     pub async fn get_or_load<F, Fut>(&self, key: &str, ttl: Duration, loader: F) -> Result<T, E>
     where
         F: FnOnce() -> Fut + Send,
@@ -158,7 +158,16 @@ where
 
         // ---- L2 hit ----
         let start = Instant::now();
-        let cached: Option<String> = self.backend.get(&key_owned).await?;
+        let cached = match self.backend.get(&key_owned).await {
+            Ok(cached) => cached,
+            Err(e) => {
+                warn!(
+                    "multi_level_cache: failed to read L2 key={}, degrading to L3: {e:?}",
+                    key
+                );
+                None
+            }
+        };
         if let Some(json) = cached {
             match serde_json::from_str::<T>(&json) {
                 Ok(value) => {
@@ -347,16 +356,20 @@ where
                     Vec::with_capacity(write_back.len());
                 for (key, item) in write_back {
                     self.write_l1(key.clone(), item.clone()).await;
-                    items.push((
-                        key,
-                        serde_json::to_string(&item).map_err(CacheError::from)?,
-                        ttl,
-                    ));
+                    match serde_json::to_string(&item) {
+                        Ok(json) => items.push((key, json, ttl)),
+                        Err(e) => warn!(
+                            "multi_level_cache: failed to serialize L2 value key={}: {e:?}",
+                            key
+                        ),
+                    }
                 }
                 // Backfill failure must not affect the read result (best-effort).
-                self.backend.set_ex_many(&items).await.unwrap_or_else(|e| {
-                    warn!("multi_level_cache: failed to batch-write L2: {e:?}");
-                });
+                if !items.is_empty() {
+                    self.backend.set_ex_many(&items).await.unwrap_or_else(|e| {
+                        warn!("multi_level_cache: failed to batch-write L2: {e:?}");
+                    });
+                }
             }
         }
 

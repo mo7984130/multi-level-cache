@@ -7,6 +7,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ### Changed
 
+- L1/L2 read and backfill failures now log and degrade to the L3 loader; only loader failures
+  are returned from read-through cache operations.
 - `MultiLevelCache<T, E>` is now generic over the error type `E` (default `CacheError`).
   Loader closures return `Result<T, E>` with the caller's own error type, so no manual
   conversion is needed; internal failures ([`CacheError`]) are converted via `E: From<CacheError>`.

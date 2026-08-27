@@ -9,8 +9,8 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
+use redis::aio::ConnectionManager;
 
 use crate::backend::Backend;
 use crate::error::CacheError;

@@ -4,10 +4,9 @@ use std::error::Error as StdError;
 
 /// Error returned by cache operations.
 ///
-/// Every internal failure (backend, serialization, data-source loading) is funneled into this
-/// type, so the crate stays independent of the caller's business error types. Underlying errors
-/// are preserved as the error source (`Error::source`), keeping the error chain intact for
-/// diagnostics.
+/// Errors exposed by cache mutation operations and data-source loaders. Read-through cache
+/// failures are logged and degrade to the loader instead. Underlying errors are preserved as the
+/// error source (`Error::source`), keeping the error chain intact for diagnostics.
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
     /// L2 backend error (Redis connection, command execution, etc.)

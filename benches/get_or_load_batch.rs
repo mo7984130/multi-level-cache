@@ -59,7 +59,10 @@ async fn loader(ids: Vec<u64>) -> Result<Vec<MockRow>, multi_level_cache::CacheE
 
 async fn prefill(cache: &MultiLevelCache<MockRow>, ks: &[u64]) {
     for id in ks {
-        cache.put(&key_of(id), MockRow::new(*id), L2_TTL).await.unwrap();
+        cache
+            .put(&key_of(id), MockRow::new(*id), L2_TTL)
+            .await
+            .unwrap();
     }
 }
 

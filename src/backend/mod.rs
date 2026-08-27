@@ -19,10 +19,10 @@ use async_trait::async_trait;
 
 use crate::error::CacheError;
 
-#[cfg(feature = "redis-deadpool")]
-mod redis_deadpool;
 #[cfg(feature = "redis-connection")]
 mod redis_connection;
+#[cfg(feature = "redis-deadpool")]
+mod redis_deadpool;
 
 /// The L2 cache backend abstraction.
 ///
