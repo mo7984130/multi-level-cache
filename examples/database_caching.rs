@@ -1,15 +1,15 @@
 //! Database caching: Redis backend + type-safe loader.
 //!
 //! Shows the generic error parameter `E` in action: the loader returns the app's own error type
-//! (`AppError`) with zero conversion, while internal cache failures are converted via
-//! `From<CacheError>`.
+//! (`AppError`) with zero conversion, while internal cache failures are logged and degrade to the
+//! loader, so `AppError` needs no conversion impl.
 //!
 //! Requires the `redis-connection` feature: `cargo run -p multi-level-cache --features redis-connection --example database_caching`
 //! A local Redis is required; the address can be set via the `REDIS_URL` environment variable.
 
 use std::time::Duration;
 
-use multi_level_cache::{CacheConfig, CacheError, MultiLevelCache};
+use multi_level_cache::{CacheConfig, MultiLevelCache};
 use redis::aio::ConnectionManager;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ struct Product {
 }
 
 /// App-level error type. Loader closures return `Result<T, AppError>`, so business errors are
-/// expressed natively; the cache converts its own [`CacheError`] into this type via `From`.
+/// expressed natively; internal cache failures are logged and degrade instead of converting.
 #[derive(Debug)]
 enum AppError {
     /// Business error, safe to expose to the user.
@@ -39,15 +39,6 @@ impl std::fmt::Display for AppError {
 }
 
 impl std::error::Error for AppError {}
-
-impl From<CacheError> for AppError {
-    fn from(e: CacheError) -> Self {
-        match e {
-            CacheError::Custom(err) => Self::NotFound(err.to_string()),
-            _ => Self::Internal(e.to_string()),
-        }
-    }
-}
 
 /// Simulates a database query: fails internally (DB down) or returns the row.
 async fn query_db(id: u64) -> Result<Option<Product>, AppError> {

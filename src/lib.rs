@@ -36,10 +36,12 @@
 //!
 //! ## Error handling
 //!
-//! Cache operations return the caller's error type `E` (default [`CacheError`]). Loader closures
-//! return `Result<T, E>` with the caller's own error type; internal failures ([`CacheError`]:
-//! backend, serialization, data-source loading) are converted into `E` via `E: From<CacheError>`.
-//! Use `?` to propagate, or match variants to degrade as needed.
+//! Cache operations: read-through operations return the caller's error type `E` (default
+//! [`CacheError`]), while write and invalidation operations return [`CacheError`] directly. Loader
+//! closures return `Result<T, E>` with the caller's own error type. Cache read failures are logged
+//! and degrade to the loader instead of being surfaced through `E`, so custom error types need no
+//! conversion impl. Use `?` to propagate loader errors, or match [`CacheError`] variants on
+//! mutations as needed.
 
 pub mod backend;
 pub mod cache;

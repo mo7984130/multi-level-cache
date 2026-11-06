@@ -129,8 +129,9 @@ cache.invalidate("user:1").await?;
 
 ## Error handling
 
-Cache operations return the caller's error type `E` (default
-[`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)):
+Read-through cache operations return the caller's error type `E` (default
+[`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)),
+while write and invalidation operations return `CacheError` directly:
 
 L1/L2 read and backfill failures are logged and degrade to the L3 loader; only a loader failure
 is returned from `get_or_load` / `get_or_load_batch`. Cache write and invalidation operations
@@ -149,28 +150,18 @@ The underlying error is preserved as the error source, so the full chain stays a
 ### Custom error type
 
 `MultiLevelCache<T, E>` is generic over the error type `E` (default `CacheError`). Loader
-closures return `Result<T, E>` with the app's own error type, and internal cache failures
-([`CacheError`]) are converted into `E` via `E: From<CacheError>`. This lets callers express
-business vs internal errors natively:
+closures return `Result<T, E>` with the app's own error type, so business errors propagate
+natively. Internal cache failures are logged and degrade to the loader instead of being surfaced
+through `E`, so no conversion impl is required:
 
 ```rust,no_run
-use multi_level_cache::{CacheConfig, CacheError, MultiLevelCache};
+use multi_level_cache::{CacheConfig, MultiLevelCache};
 
 // The app's own error type.
 #[derive(Debug)]
 enum AppError { NotFound(String), Internal(String) }
 impl std::fmt::Display for AppError { /* ... */ }
 impl std::error::Error for AppError {}
-
-// Internal cache failures map to a kind the app can match on.
-impl From<CacheError> for AppError {
-    fn from(e: CacheError) -> Self {
-        match e {
-            CacheError::Custom(err) => AppError::NotFound(err.to_string()),
-            _ => AppError::Internal(e.to_string()),
-        }
-    }
-}
 
 let cache = MultiLevelCache::<User, AppError>::new(
     InMemoryBackend::new(),

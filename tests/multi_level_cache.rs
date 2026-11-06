@@ -478,24 +478,15 @@ async fn cache_loader_error_propagates() {
 }
 
 /// Mimics an app-level error type (like AppError) to verify the generic `E` usage.
+/// It intentionally does not implement `From<CacheError>`: the cache must not require it.
 #[derive(Debug)]
 struct AppError {
     msg: String,
-    kind: AppErrorKind,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum AppErrorKind {
-    BadRequest,
-    Internal,
 }
 
 impl AppError {
     fn bad_request(msg: &str) -> Self {
-        Self {
-            msg: msg.into(),
-            kind: AppErrorKind::BadRequest,
-        }
+        Self { msg: msg.into() }
     }
 }
 
@@ -506,19 +497,6 @@ impl std::fmt::Display for AppError {
 }
 
 impl std::error::Error for AppError {}
-
-/// Internal cache failures map to Internal.
-impl From<CacheError> for AppError {
-    fn from(e: CacheError) -> Self {
-        match e {
-            CacheError::Custom(_) => Self::bad_request("custom"),
-            _ => AppError {
-                msg: e.to_string(),
-                kind: AppErrorKind::Internal,
-            },
-        }
-    }
-}
 
 #[tokio::test]
 async fn custom_error_type_passthrough_loader_error() {
@@ -532,7 +510,7 @@ async fn custom_error_type_passthrough_loader_error() {
             Err(AppError::bad_request("user_not_found"))
         })
         .await;
-    assert!(matches!(&result, Err(e) if e.kind == AppErrorKind::BadRequest));
+    assert!(matches!(&result, Err(e) if e.msg == "user_not_found"));
 }
 
 #[tokio::test]

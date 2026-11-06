@@ -5,13 +5,23 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-06
+
+### Fixed
+
+- Removed the unnecessary `E: From<CacheError>` bound from `MultiLevelCache` methods. Custom
+  error types no longer need a conversion impl; runtime behavior is unchanged because internal
+  cache failures are logged and degraded.
+
+## [0.1.1] - 2026-08-27
+
 ### Changed
 
 - L1/L2 read and backfill failures now log and degrade to the L3 loader; only loader failures
   are returned from read-through cache operations.
 - `MultiLevelCache<T, E>` is now generic over the error type `E` (default `CacheError`).
-  Loader closures return `Result<T, E>` with the caller's own error type, so no manual
-  conversion is needed; internal failures ([`CacheError`]) are converted via `E: From<CacheError>`.
+  Loader closures return `Result<T, E>` with the caller's own error type; read failures are
+  logged and degraded to the loader.
 - `CacheError::Backend` and `CacheError::Loader` now carry the underlying error as a
   `Box<dyn Error + Send + Sync>` instead of a message string, preserving the error chain via
   `Error::source`. Construct with `CacheError::backend(e)` / `CacheError::loader(e)`.

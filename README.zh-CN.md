@@ -128,8 +128,9 @@ cache.invalidate("user:1").await?;
 
 ## 错误处理
 
-缓存操作返回调用方指定的错误类型 `E`(默认为
-[`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)):
+读穿透操作返回调用方指定的错误类型 `E`(默认为
+[`CacheError`](https://docs.rs/multi-level-cache/latest/multi_level_cache/enum.CacheError.html)),
+写入和失效操作直接返回 `CacheError`:
 
 L1/L2 读取和回填写失败会记录日志并降级到 L3 loader；`get_or_load` /
 `get_or_load_batch` 仅在 loader 失败时返回错误。缓存写入和失效操作仍会返回后端错误，
@@ -147,27 +148,17 @@ L1/L2 读取和回填写失败会记录日志并降级到 L3 loader；`get_or_lo
 ### 自定义错误类型
 
 `MultiLevelCache<T, E>` 对错误类型 `E` 泛型化(默认 `CacheError`)。loader 闭包返回
-`Result<T, E>`(调用方自有错误类型),库内部错误([`CacheError`])通过 `E: From<CacheError>`
-自动转换。调用方因此可以用自己的错误类型原生表达业务/内部错误:
+`Result<T, E>`(调用方自有错误类型),业务错误可原样向上传播。库内部错误会记录日志并降级到
+loader,不通过 `E` 向上抛,因此自定义错误类型无需实现任何转换:
 
 ```rust,no_run
-use multi_level_cache::{CacheConfig, CacheError, MultiLevelCache};
+use multi_level_cache::{CacheConfig, MultiLevelCache};
 
 // 应用自有错误类型
 #[derive(Debug)]
 enum AppError { NotFound(String), Internal(String) }
 impl std::fmt::Display for AppError { /* ... */ }
 impl std::error::Error for AppError {}
-
-// 库内部错误映射为可匹配的类别
-impl From<CacheError> for AppError {
-    fn from(e: CacheError) -> Self {
-        match e {
-            CacheError::Custom(err) => AppError::NotFound(err.to_string()),
-            _ => AppError::Internal(e.to_string()),
-        }
-    }
-}
 
 let cache = MultiLevelCache::<User, AppError>::new(
     InMemoryBackend::new(),

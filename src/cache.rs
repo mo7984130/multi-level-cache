@@ -54,10 +54,10 @@ impl CacheConfig {
 /// Different data types each hold their own independent [`MultiLevelCache`] instance.
 ///
 /// The generic parameter `E` is the caller's error type, defaulting to [`CacheError`]. Loader
-/// closures return `Result<T, E>`, so the caller can use its own error type without wrapping;
-/// internal failures ([`CacheError`]) are converted into `E` via `E: From<CacheError>`. This
-/// keeps the cache library self-contained while letting the caller express business errors
-/// natively.
+/// closures return `Result<T, E>`, so the caller can use its own error type without wrapping.
+/// Internal cache failures are logged and degraded instead of being surfaced through `E`, so
+/// custom error types need no conversion impl. This keeps the cache library self-contained
+/// while letting the caller express business errors natively.
 pub struct MultiLevelCache<T, E = CacheError> {
     /// Instance name used as the `cache:{name}:*` metric prefix (present only with the `metrics`
     /// feature).
@@ -76,7 +76,6 @@ pub struct MultiLevelCache<T, E = CacheError> {
 impl<T, E> MultiLevelCache<T, E>
 where
     T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
-    E: From<CacheError> + Send + Sync + 'static,
 {
     /// Default instance name used as the metric prefix when none is specified.
     const DEFAULT_NAME: &'static str = "multi-level-cache";
