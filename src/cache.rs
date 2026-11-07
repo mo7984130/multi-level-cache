@@ -58,6 +58,7 @@ impl CacheConfig {
 /// Internal cache failures are logged and degraded instead of being surfaced through `E`, so
 /// custom error types need no conversion impl. This keeps the cache library self-contained
 /// while letting the caller express business errors natively.
+#[derive(Clone)]
 pub struct MultiLevelCache<T, E = CacheError> {
     /// Instance name used as the `cache:{name}:*` metric prefix (present only with the `metrics`
     /// feature).
