@@ -673,7 +673,7 @@ dependencies = [
 
 [[package]]
 name = "multi-level-cache"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "async-trait",
  "criterion",
