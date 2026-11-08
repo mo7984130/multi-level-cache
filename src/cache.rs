@@ -30,16 +30,37 @@ use crate::error::CacheError;
 pub struct CacheConfig {
     /// Whether the cache is enabled. When disabled, reads/writes pass straight through to the
     /// loader, which is useful for benchmark comparison.
+    #[serde(default = "default_enabled")]
     pub enabled: bool,
     /// Maximum number of entries in the L1 local cache.
-    pub local_capacity: u64,
+    #[serde(default = "default_local_capacity")]
+    pub local_capacity: usize,
     /// L1 local cache TTL (a short TTL keeps multi-instance deployments eventually consistent).
+    #[serde(default = "default_local_ttl")]
     pub local_ttl: Duration,
+}
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_enabled(),
+            local_capacity: default_local_capacity(),
+            local_ttl: default_local_ttl(),
+        }
+    }
+}
+fn default_enabled() -> bool {
+    true
+}
+fn default_local_capacity() -> usize {
+    1024 * 8
+}
+fn default_local_ttl() -> Duration {
+    Duration::from_secs(60)
 }
 
 impl CacheConfig {
     /// Creates a cache configuration.
-    pub fn new(enabled: bool, local_capacity: u64, local_ttl: Duration) -> Self {
+    pub fn new(enabled: bool, local_capacity: usize, local_ttl: Duration) -> Self {
         Self {
             enabled,
             local_capacity,
