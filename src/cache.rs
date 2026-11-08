@@ -18,15 +18,15 @@ use std::time::{Duration, Instant};
 
 use indexmap::IndexMap;
 use moka::future::Cache;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::backend::Backend;
 use crate::error::CacheError;
 
 /// Configuration for a cache instance.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct CacheConfig {
     /// Whether the cache is enabled. When disabled, reads/writes pass straight through to the
     /// loader, which is useful for benchmark comparison.
