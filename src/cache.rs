@@ -34,7 +34,7 @@ pub struct CacheConfig {
     pub enabled: bool,
     /// Maximum number of entries in the L1 local cache.
     #[serde(default = "default_local_capacity")]
-    pub local_capacity: usize,
+    pub local_capacity: u64,
     /// L1 local cache TTL (a short TTL keeps multi-instance deployments eventually consistent).
     #[serde(default = "default_local_ttl")]
     pub local_ttl: Duration,
@@ -51,7 +51,7 @@ impl Default for CacheConfig {
 fn default_enabled() -> bool {
     true
 }
-fn default_local_capacity() -> usize {
+fn default_local_capacity() -> u64 {
     1024 * 8
 }
 fn default_local_ttl() -> Duration {
@@ -60,7 +60,7 @@ fn default_local_ttl() -> Duration {
 
 impl CacheConfig {
     /// Creates a cache configuration.
-    pub fn new(enabled: bool, local_capacity: usize, local_ttl: Duration) -> Self {
+    pub fn new(enabled: bool, local_capacity: u64, local_ttl: Duration) -> Self {
         Self {
             enabled,
             local_capacity,
